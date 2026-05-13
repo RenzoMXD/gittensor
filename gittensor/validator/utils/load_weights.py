@@ -196,6 +196,12 @@ def load_programming_language_weights() -> Dict[str, LanguageConfig]:
         return {}
 
 
+def _coerce_share(repo_name: str, field_name: str, raw_value: object) -> float:
+    if isinstance(raw_value, bool):
+        raise ValueError(f'{repo_name} {field_name} must be numeric, got bool')
+    return float(raw_value)  # type: ignore[arg-type]
+
+
 def _validate_repository_config(repo_name: str, config: RepositoryConfig) -> None:
     if not 0.0 <= config.emission_share <= 1.0:
         raise ValueError(f'{repo_name} emission_share must be within [0.0, 1.0]')
@@ -208,8 +214,10 @@ def _parse_repository_config(repo_name: str, metadata: dict) -> Optional[Reposit
         if 'emission_share' not in metadata:
             raise ValueError(f'{repo_name} missing required emission_share')
         config = RepositoryConfig(
-            emission_share=float(metadata['emission_share']),
-            issue_discovery_share=float(metadata.get('issue_discovery_share', 0.5)),
+            emission_share=_coerce_share(repo_name, 'emission_share', metadata['emission_share']),
+            issue_discovery_share=_coerce_share(
+                repo_name, 'issue_discovery_share', metadata.get('issue_discovery_share', 0.5)
+            ),
             inactive_at=metadata.get('inactive_at'),
             additional_acceptable_branches=metadata.get('additional_acceptable_branches'),
             trusted_label_pipeline=bool(metadata.get('trusted_label_pipeline', False)),

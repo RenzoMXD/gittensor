@@ -418,6 +418,24 @@ class TestRepositoryEmissionShares:
         assert set(repos) == {'foo/a', 'foo/b'}
         assert sum(config.emission_share for config in repos.values()) == pytest.approx(0.8)
 
+    def test_loader_rejects_boolean_emission_share(self, tmp_path, monkeypatch):
+        from gittensor.validator.utils import load_weights as lw
+
+        (tmp_path / 'master_repositories.json').write_text(json.dumps({'foo/a': {'emission_share': True}}))
+        monkeypatch.setattr(lw, '_get_weights_dir', lambda: tmp_path)
+
+        assert lw.load_master_repo_weights() == {}
+
+    def test_loader_rejects_boolean_issue_discovery_share(self, tmp_path, monkeypatch):
+        from gittensor.validator.utils import load_weights as lw
+
+        (tmp_path / 'master_repositories.json').write_text(
+            json.dumps({'foo/a': {'emission_share': 0.5, 'issue_discovery_share': False}})
+        )
+        monkeypatch.setattr(lw, '_get_weights_dir', lambda: tmp_path)
+
+        assert lw.load_master_repo_weights() == {}
+
 
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])

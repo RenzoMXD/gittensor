@@ -51,11 +51,23 @@ def allocate_emissions(
         if not has_pr_scores and not has_issue_scores:
             recycle_share += repo_share
             continue
+
+        # Sub-slices only spill between enabled sides. When issue_discovery_share
+        # is 0 or 1, the corresponding side is disabled (sub-slice is 0); a
+        # disabled side never receives spill — the orphaned sub-slice recycles.
+        pr_side_enabled = issue_share < 1.0
+        issue_side_enabled = issue_share > 0.0
         if not has_pr_scores:
-            issue_slice += pr_slice
+            if issue_side_enabled:
+                issue_slice += pr_slice
+            else:
+                recycle_share += pr_slice
             pr_slice = 0.0
         if not has_issue_scores:
-            pr_slice += issue_slice
+            if pr_side_enabled:
+                pr_slice += issue_slice
+            else:
+                recycle_share += issue_slice
             issue_slice = 0.0
 
         _add_proportional_slice(rewards, uid_index, repo_pr_scores, pr_slice * OSS_EMISSION_SHARE)

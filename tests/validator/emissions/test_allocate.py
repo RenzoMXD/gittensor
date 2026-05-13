@@ -226,3 +226,57 @@ def test_collateral_deductions_reduce_allocated_scoring_reward():
     apply_collateral_deductions(rewards, evaluations, {1})
 
     assert rewards[0] == pytest.approx(OSS_EMISSION_SHARE * 0.4)
+
+
+def test_issue_discovery_share_zero_with_active_issue_side_recycles_not_spills():
+    evaluations = {
+        RECYCLE_UID: _eval(RECYCLE_UID),
+        1: _eval(1, issue_scores={'entrius/oc-1': 100.0}),
+        2: _eval(2, {'absorbent/repo': 100.0}),
+    }
+    repos = {
+        'entrius/oc-1': RepositoryConfig(emission_share=0.4, issue_discovery_share=0.0),
+        'absorbent/repo': RepositoryConfig(emission_share=0.6),
+    }
+
+    rewards = allocate_emissions(evaluations, repos, {RECYCLE_UID, 1, 2})
+
+    assert rewards[0] == pytest.approx(OSS_EMISSION_SHARE * 0.4)
+    assert rewards[1] == pytest.approx(0.0)
+    assert rewards[2] == pytest.approx(OSS_EMISSION_SHARE * 0.6)
+
+
+def test_issue_discovery_share_one_with_active_pr_side_recycles_not_spills():
+    evaluations = {
+        RECYCLE_UID: _eval(RECYCLE_UID),
+        1: _eval(1, {'entrius/gittensor': 100.0}),
+        2: _eval(2, issue_scores={'absorbent/repo': 100.0}),
+    }
+    repos = {
+        'entrius/gittensor': RepositoryConfig(emission_share=0.25, issue_discovery_share=1.0),
+        'absorbent/repo': RepositoryConfig(emission_share=0.75, issue_discovery_share=1.0),
+    }
+
+    rewards = allocate_emissions(evaluations, repos, {RECYCLE_UID, 1, 2})
+
+    assert rewards[0] == pytest.approx(OSS_EMISSION_SHARE * 0.25)
+    assert rewards[1] == pytest.approx(0.0)
+    assert rewards[2] == pytest.approx(OSS_EMISSION_SHARE * 0.75)
+
+
+def test_live_registry_loads_and_allocates():
+    from gittensor.validator.utils.load_weights import load_master_repo_weights
+
+    repos = load_master_repo_weights()
+    assert repos, 'master_repositories.json failed to load'
+
+    total_share = sum(cfg.emission_share for cfg in repos.values())
+    assert 0.0 <= total_share <= 1.0
+
+    canonical_gittensor = next((k for k in repos if k == 'entrius/gittensor'), None)
+    assert canonical_gittensor is not None
+    evaluations = {1: _eval(1, {canonical_gittensor: 100.0})}
+    rewards = allocate_emissions(evaluations, repos, {1})
+
+    expected = OSS_EMISSION_SHARE * repos[canonical_gittensor].emission_share
+    assert rewards[0] == pytest.approx(expected)
